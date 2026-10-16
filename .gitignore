@@ -4,6 +4,11 @@ __pycache__/
 build/
 dist/
 wheels/
+.pytest_cache/
+.ruff_cache/
+data/raw/
+data/processed/
+*.py[cod]
 *.egg-info
 
 # Virtual environments

@@ -107,6 +107,14 @@ La auditoría debe registrar por separado la fecha de extracción, el periodo es
 
 DENUE es la fuente candidata inicial para establecimientos. El censo, los Censos Económicos y la cartografía oficial son fuentes candidatas de contexto y vinculación. Su cobertura, accesibilidad, condiciones de uso y posibilidad real de integración siguen pendientes de comprobación. El inventario de investigación estará en `docs/data-sources.md`.
 
+### Gobierno y ciclo de vida de los datos
+
+Rendify aplicará prácticas proporcionales inspiradas en DAMA-DMBOK para gestionar responsabilidades, fuentes, definiciones, metadatos, calidad, seguridad e integración. El equipo no afirma una implantación completa ni una certificación DAMA; utilizará controles concretos que sean útiles para el MVP.
+
+El patrón medallón organizará el refinamiento técnico: Bronze conserva la respuesta original y su manifiesto; Silver contiene registros normalizados y validados bajo contrato; Gold reúne agregados e indicadores definidos; Quarantine mantiene excepciones trazables. La cuarentena no es una cuarta capa medallón. Los detalles y criterios de promoción se documentan en docs/architecture/medallion-architecture.md y docs/governance/.
+
+Ninguna tabla o indicador se considera listo para producto sin propósito, responsable, granularidad, diccionario, reglas de calidad, procedencia, periodo y limitaciones documentados.
+
 ## 9. Decisiones tecnológicas
 
 ### Dirección de trabajo acordada
@@ -125,7 +133,7 @@ DENUE es la fuente candidata inicial para establecimientos. El censo, los Censos
 - pytest y Ruff para pruebas y calidad de código.
 - PostgreSQL/PostGIS para persistencia y datos geoespaciales si lo requiere el pipeline.
 - SQL para transformaciones analíticas.
-- Airflow cuando las dependencias y la operación justifiquen una herramienta de orquestación.
+- Airflow para orquestar el primer pipeline DENUE; el extractor y las transformaciones permanecerán en módulos Python ejecutables independientemente.
 - Cloud Storage y BigQuery para una fase cloud, midiendo coste y valor.
 - FastAPI para exponer indicadores y React + TypeScript u otra alternativa adecuada para la interfaz.
 - GitHub Actions para automatizar pruebas, lint, build y despliegues cuando existan.
@@ -166,16 +174,15 @@ No se fijan todavía metas numéricas de adopción o impacto porque no se han va
 
 ## 12. Plan por fases
 
-1. **Sprint 0 — Definición y viabilidad:** alcance, categorías, repositorio, fuentes e indicadores candidatos.
-2. **Sprint 1 — Auditoría DENUE:** documentación de acceso, consulta de prueba, extractor, muestra original, perfilado y pruebas.
-3. **Ingesta local:** esquema de staging, almacenamiento, claves, deduplicación e idempotencia.
-4. **Integración geográfica y censal:** validar claves, periodos y granularidad.
-5. **Modelo analítico:** tablas de indicadores, fórmulas y pruebas.
-6. **Cloud:** trasladar solo las cargas justificadas a servicios de GCP, con controles de permisos y coste.
-7. **Orquestación y operación:** programar ejecuciones, manejar reintentos, logging y recuperación.
-8. **ML baseline:** solo con objetivo, datos y esquema de evaluación apropiados.
-9. **API y web:** visualización, filtros, comparador y explicaciones.
-10. **CI/CD y validación:** despliegue controlado, seguridad, documentación y pruebas con usuarios.
+1. **Sprint 0 — Definición y viabilidad:** alcance, categorías, fuentes, indicadores candidatos y marco de gobierno mínimo.
+2. **Sprint 1 — DENUE y pipeline inicial:** consultar una muestra, preservar respuesta Bronze, verificar esquema, generar manifiesto y perfil de calidad, añadir un DAG Airflow manual.
+3. **Silver inicial:** contrato versionado, normalización, pruebas y cuarentena de excepciones.
+4. **Integración geográfica y de referencia:** validar claves, catálogo SCIAN, colonias y periodos con fuentes oficiales.
+5. **Gold descriptivo:** construir indicadores transparentes por actividad, zona y periodo con definición y linaje.
+6. **Operación y cloud:** programar ejecuciones cuando la frecuencia de actualización lo justifique; mover almacenamiento a GCP solo con presupuesto, permisos y necesidad definidos.
+7. **ML baseline:** solo con objetivo, datos y esquema de evaluación apropiados.
+8. **API y web:** visualización, filtros, comparador y explicaciones.
+9. **CI/CD y validación:** pruebas automatizadas, seguridad, documentación y evaluación con usuarios.
 
 Cada fase se cerrará mediante entregables verificables, no por el mero transcurso del tiempo.
 

@@ -6,11 +6,30 @@ dist/
 wheels/
 .pytest_cache/
 .ruff_cache/
-data/raw/
-data/processed/
 *.py[cod]
 *.egg-info
 
 # Virtual environments
 .venv
 .env
+
+# Generated medallion data (keep datasets out of Git)
+data/bronze/
+data/silver/
+data/gold/
+data/quarantine/
+data/raw/
+data/processed/
+
+# Local reports and logs
+reports/generated/
+logs/
+airflow-logs/
+airflow.db
+airflow.cfg
+airflow-webserver.pid
+
+# Local secret variants; keep .env.example trackable
+.env.local
+.env.development.local
+.env.production.local

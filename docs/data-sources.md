@@ -119,6 +119,20 @@ Los originales se preservarán sin transformaciones silenciosas, siguiendo el pr
 
 Los tokens y credenciales no deben quedar en Git, archivos de datos publicados, logs ni imágenes. La configuración sensible se manejará mediante variables de entorno locales o mecanismos adecuados al entorno de ejecución.
 
+## 6.1 Gobierno, catálogo y control de cambios
+
+Este inventario técnico se complementa con los artefactos de gobierno en docs/governance/:
+
+- data-assets-register.md: ID del activo, uso, responsable interno, estado y evidencia pendiente.
+- data-dictionary.md: propiedades de origen candidatas y nombres canónicos propuestos.
+- data-quality-rules.md: controles por capa y evidencia para promover datos.
+- data-management-plan.md: metadatos, seguridad, ciclo de vida e integración.
+- data-governance-charter.md: responsabilidades, decisiones y principios.
+
+La fuente se mantendrá como Candidata o En auditoría hasta contar con evidencia reproducible. La revisión de documentación no equivale a validación técnica de endpoint, campos, cobertura ni condiciones de reutilización. Para DENUE, la primera prueba deberá aportar la URL y parámetros sin secretos, fecha de ejecución, respuesta original segura, lista real de propiedades, recuento, informe de calidad y resultados de contraste cuando sea posible.
+
+Todo cambio de método, campo de origen, clave geográfica, mapeo SCIAN, licencia/condición de uso o interpretación de una métrica se registrará mediante una pull request que actualice los documentos y pruebas afectados. No se considerará validado un elemento solo por haberse documentado.
+
 ## 7. Reporte de perfilado y calidad
 
 La primera muestra del DENUE deberá producir un informe que responda:

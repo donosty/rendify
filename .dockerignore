@@ -1,0 +1,21 @@
+.git
+.github
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.env
+.env.*.local
+
+# Generated datasets and local execution artifacts
+data/bronze
+data/silver
+data/gold
+data/quarantine
+data/raw
+data/processed
+reports/generated
+logs
+airflow-logs
+airflow.db

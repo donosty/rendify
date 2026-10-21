@@ -6,8 +6,6 @@ dist/
 wheels/
 .pytest_cache/
 .ruff_cache/
-data/raw/
-data/processed/
 *.py[cod]
 *.egg-info
 

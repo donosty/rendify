@@ -47,10 +47,12 @@ No presentaremos correlaciones como causalidad, ni una puntuación heurística c
 - **Validar antes de diseñar en exceso:** auditar muestras reales antes de fijar contratos y modelos definitivos.
 - **Local primero:** desarrollar y reproducir el flujo localmente; incorporar cloud solo cuando aporte valor medible.
 - **Trazabilidad:** preservar los datos originales y registrar fuente, parámetros no secretos, fecha de extracción, periodo de referencia y versión.
-- **Capas separadas:** orientar la evolución hacia Bronze (originales), Silver (datos normalizados y validados) y Gold (indicadores de producto).
-- **Calidad comprobable:** automatizar pruebas para extracción, transformación, integridad y consistencia.
+- **Gobierno de datos inspirado en DAMA-DMBOK:** documentar responsables, fuentes, definiciones, metadatos, calidad, seguridad y criterios de uso, con controles proporcionales al tamaño del equipo.
+- **Capas medallón:** Bronze conserva originales; Silver normaliza y valida; Gold publica indicadores con definiciones y linaje. La cuarentena gestiona excepciones sin sustituir el original.
+- **Calidad comprobable:** automatizar controles por capa y exigir evidencia antes de promover o publicar datasets.
+- **Trazabilidad:** cada salida debe enlazar con la fuente, la ejecución, el contrato y la versión del código.
 - **Simplicidad intencional:** no incluir Spark, Kafka, Kubernetes ni otros componentes por moda; cada tecnología debe responder a una necesidad concreta.
-- **Responsabilidad:** revisar atribución, condiciones de reutilización, privacidad, seguridad y costes antes de publicar.
+- **Responsabilidad:** revisar atribución, condiciones de reutilización, minimización, seguridad y costes antes de publicar.
 
 ## Roadmap de alto nivel
 
@@ -76,40 +78,69 @@ Las fases son una secuencia de trabajo, no una promesa de que todos los componen
 | Calidad y estilo | pytest, Ruff | Pendiente de configuración |
 | Almacenamiento local | PostgreSQL + PostGIS | Fase posterior |
 | Transformación | SQL y Python | Fase posterior |
-| Orquestación | Airflow si hay dependencias que orquestar | Fase posterior; no es requisito de la primera extracción |
+| Orquestación | Apache Airflow | Planeado desde el primer pipeline orquestado; la lógica de extracción seguirá siendo ejecutable fuera de Airflow |
 | Cloud | Google Cloud Storage, BigQuery y servicios adecuados de GCP | Después de validar el flujo local |
 | API y web | FastAPI; React + TypeScript u otra opción adecuada | Fase posterior |
 | CI/CD | GitHub Actions | Pendiente |
 
-## Estructura actual del repositorio
+## Estructura del repositorio y capas de datos
 
-La estructura siguiente refleja los archivos que existen actualmente en la rama principal. Los archivos marcados como plantilla o vacíos todavía no contienen una implementación funcional.
+La estructura del código separa orquestación, lógica de aplicación, pruebas y documentación de gobierno. Las carpetas de datos representan el patrón medallón lógico; los datos generados se crean en tiempo de ejecución y no se versionan.
 
-```text
+~~~text
 rendify/
-├── .dockerignore             # Vacío; Docker no está configurado
-├── .gitignore                # Reglas iniciales de exclusión
-├── .python-version           # Python 3.12
-├── Dockerfile                # Vacío; reservado para una etapa posterior
-├── README.md                 # Este documento
-├── data/
-│   └── .gitkeep              # Mantiene el directorio en Git
-├── docker-compose.yaml       # Vacío; reservado para una etapa posterior
+├── dags/
+│   └── denue_initial_extraction.py  # Punto de entrada Airflow; implementar
+├── config/
+│   └── reference/
+│       └── README.md                # Política para catálogos y mapeos versionados
+├── data/                            # Resultados locales; no versionar datos generados
+│   ├── bronze/denue/                # Respuestas originales + manifiestos
+│   ├── silver/denue/                # Registros normalizados y validados
+│   ├── gold/area_activity/          # Agregados para comparación por zona/actividad
+│   ├── gold/ml_features/            # Solo al definir un caso ML defendible
+│   └── quarantine/denue/            # Excepciones con referencia al original
 ├── docs/
-│   ├── product-brief.md      # Definición del producto
-│   └── data-sources.md       # Inventario y auditoría de fuentes
-├── pyproject.toml            # Metadatos del paquete y configuración de uv
-├── reports/
-│   └── .gitkeep              # Mantiene el directorio en Git
+│   ├── architecture/
+│   │   └── medallion-architecture.md
+│   ├── decisions/
+│   │   └── 0001-data-governance-and-medallion.md
+│   ├── governance/
+│   │   ├── data-governance-charter.md
+│   │   ├── data-management-plan.md
+│   │   ├── data-dictionary.md
+│   │   ├── data-quality-rules.md
+│   │   └── data-assets-register.md
+│   ├── denue-api-research.md
+│   ├── data-sources.md
+│   └── product-brief.md
+├── reports/                         # Reportes seleccionados de calidad/perfilado
+├── schemas/
+│   └── README.md                    # Contratos una vez validado el esquema real
 ├── scripts/
-│   └── profile_denue.py      # Vacío; futuro perfilado de datos
-├── src/
-│   └── rendify/
-│       └── __init__.py       # Entrada de plantilla; imprime un saludo
-└── uv.lock                   # Lockfile inicial, sin dependencias de aplicación
-```
+│   └── profile_denue.py             # Punto de entrada útil para perfilado local
+├── src/rendify/
+│   ├── denue/                       # Cliente, extracción, transformación y validación
+│   └── profiling/                   # Perfilado y reportes de calidad
+├── tests/
+│   └── denue/                       # Pruebas de cliente, contrato y calidad
+├── pyproject.toml
+└── uv.lock
+~~~
 
-A medida que se implemente el extractor, se añadirá una estructura modular para la ingesta y sus pruebas. No se añadirán directorios vacíos para componentes futuros hasta que exista una tarea concreta que los necesite.
+Los archivos de código existentes en varias de estas rutas son actualmente plantillas vacías; el árbol describe la organización objetivo, no una afirmación de que el pipeline ya funcione. Los directorios de salida de datos se crearán cuando se ejecute la ingesta. Las respuestas originales, datos Silver/Gold y cuarentena no se subirán a Git.
+
+### Cómo se relaciona DAMA con medallón
+
+DAMA-DMBOK inspira las responsabilidades, definiciones, metadatos, seguridad, calidad, integración y decisiones de uso. Medallón organiza el refinamiento técnico de los datos. El equipo implementará ambas cosas de forma ligera; no se afirma una implantación completa ni certificación DAMA.
+
+Documentos de referencia:
+- [Marco de gobierno y responsabilidades](docs/governance/data-governance-charter.md)
+- [Plan de gestión de datos](docs/governance/data-management-plan.md)
+- [Diccionario de datos](docs/governance/data-dictionary.md)
+- [Reglas de calidad](docs/governance/data-quality-rules.md)
+- [Registro de activos de datos](docs/governance/data-assets-register.md)
+- [Arquitectura medallón](docs/architecture/medallion-architecture.md)
 
 ## Preparar el entorno
 

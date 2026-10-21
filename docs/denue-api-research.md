@@ -255,7 +255,19 @@ La documentación no es totalmente uniforme entre el listado general, las descri
 
 Estas cuestiones no impiden avanzar; indican que el primer entregable debe ser un extractor pequeño con controles de calidad, no una descarga masiva asumida como completa.
 
-## 9. Referencias oficiales
+## 9. Relación con el gobierno y el esquema medallón
+
+Este documento es la ficha técnica de investigación de la fuente; debe leerse junto con los artefactos de gobierno:
+- Marco y responsables: docs/governance/data-governance-charter.md
+- Registro del activo SRC-DENUE: docs/governance/data-assets-register.md
+- Propiedades candidatas y campos canónicos: docs/governance/data-dictionary.md
+- Controles y promoción: docs/governance/data-quality-rules.md
+- Ciclo de vida: docs/governance/data-management-plan.md
+- Arquitectura de capas: docs/architecture/medallion-architecture.md
+
+Cuando se ejecute la primera petición, la respuesta original y el manifiesto pertenecerán a Bronze. Solo después de confirmar los campos y tipos se versionará el contrato de Silver. La creación de productos Gold queda pendiente de que el catálogo de actividades, las claves geográficas y las reglas de calidad sean suficientemente fiables.
+
+## 10. Referencias oficiales
 
 1. INEGI, API del DENUE — guía para desarrolladores: https://www.inegi.org.mx/servicios/api_denue.html
 2. INEGI, API del DENUE — información disponible: https://www.inegi.org.mx/servicios/api-denue/

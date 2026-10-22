@@ -4,7 +4,7 @@
 
 Rendify es un proyecto colaborativo de datos y software que busca ayudar a emprendedores, pequeños negocios y empresarios a explorar y comparar zonas geográficas mediante datos oficiales y otras fuentes verificables. La primera etapa se enfocará en la Ciudad de México y preferirá las alcaldías como unidad inicial de comparación, sujeto a la validación de las fuentes.
 
-> **Estado actual:** existe una prueba de concepto del extractor DENUE que conserva la respuesta en Bronze, escribe un manifiesto y puede validar/perfilar muestras con pruebas unitarias. Aún falta ejecutar una consulta autenticada real, verificar el esquema devuelto, configurar y probar el entorno Docker de Airflow y construir Silver/Gold. La cobertura y compatibilidad de las fuentes siguen pendientes.
+> **Estado actual:** existe una prueba de concepto del extractor DENUE que conserva la respuesta en Bronze, escribe un manifiesto y puede validar/perfilar muestras con pruebas unitarias. Aún falta ejecutar una consulta autenticada real y verificar el esquema devuelto. El DAG y el Compose local de Airflow están añadidos, pero el entorno todavía no se ha ejecutado ni validado en una máquina. Silver/Gold siguen pendientes. La cobertura y compatibilidad de las fuentes también están pendientes.
 
 ## El problema
 
@@ -78,7 +78,7 @@ Las fases son una secuencia de trabajo, no una promesa de que todos los componen
 | Calidad y estilo | unittest de Python en esta primera etapa; Ruff por configurar | Pruebas unitarias iniciales añadidas; no se han ejecutado en un entorno local en esta sesión |
 | Almacenamiento local | PostgreSQL + PostGIS | Fase posterior |
 | Transformación | SQL y Python | Fase posterior |
-| Orquestación | Apache Airflow 3.x | DAG inicial añadido; falta configurar Docker Compose y validar ejecución en Airflow |
+| Orquestación | Apache Airflow 3.3.2 (imagen Python 3.12) | DAG y Compose de desarrollo añadidos; falta ejecutar el entorno y validar el DAG |
 | Cloud | Google Cloud Storage, BigQuery y servicios adecuados de GCP | Después de validar el flujo local |
 | API y web | FastAPI; React + TypeScript u otra opción adecuada | Fase posterior |
 | CI/CD | GitHub Actions | Pendiente |
@@ -90,7 +90,7 @@ La estructura del código separa orquestación, lógica de aplicación, pruebas 
 ~~~text
 rendify/
 ├── dags/
-│   └── denue_initial_extraction.py  # DAG inicial de muestra; aún no probado en Airflow
+│   └── denue_initial_extraction.py  # DAG inicial; pendiente de prueba en Airflow
 ├── config/
 │   └── reference/
 │       └── README.md                # Política para catálogos y mapeos versionados
@@ -118,19 +118,21 @@ rendify/
 ├── schemas/
 │   └── README.md                    # Contratos una vez validado el esquema real
 ├── scripts/
-│   ├── extract_denue_sample.py      # Ejecuta muestra fuera de Airflow
-│   └── profile_denue.py             # Plantilla previa de perfilado
+│   ├── extract_denue_sample.py      # Ejecuta la muestra fuera de Airflow
+│   └── profile_denue.py             # Plantilla de perfilado anterior
 ├── src/rendify/
 │   ├── denue/                       # Cliente, extracción, transformación y validación
 │   └── profiling/                   # Perfilado y reportes de calidad
 ├── tests/
 │   └── denue/                       # Pruebas unitarias con respuestas simuladas
-├── .env.example                    # Nombres de variables, sin secretos
+├── .env.example                    # Variables locales, sin token real
+├── Dockerfile                      # Reservado; no requerido por el stack actual
+├── docker-compose.yaml              # Airflow 3 local con LocalExecutor
 ├── pyproject.toml
 └── uv.lock
 ~~~
 
-Los archivos de código existentes en varias de estas rutas son actualmente plantillas vacías; el árbol describe la organización objetivo, no una afirmación de que el pipeline ya funcione. Los directorios de salida de datos se crearán cuando se ejecute la ingesta. Las respuestas originales, datos Silver/Gold y cuarentena no se subirán a Git.
+El cliente, la extracción Bronze, la validación, el perfilado y un DAG de muestra ya tienen una implementación inicial, cubierta por tests unitarios simulados. El esquema real de DENUE y el DAG todavía requieren una ejecución de extremo a extremo. Silver y Gold son etapas futuras; sus rutas son parte de la arquitectura objetivo. Los datos generados no se subirán a Git.
 
 ### Cómo se relaciona DAMA con medallón
 
@@ -155,7 +157,7 @@ uv sync
 uv run rendify
 ```
 
-En el estado actual, el último comando ejecuta la entrada de plantilla e imprime `Hello from rendify!`. Esto solo comprueba la entrada inicial cuando se ejecuta correctamente; todavía no existe una aplicación funcional de inteligencia comercial.
+El comando `uv run rendify` sigue siendo una entrada de plantilla y puede imprimir `Hello from rendify!`. La extracción se ejecuta por separado con el script de muestra descrito abajo; todavía no existe una aplicación funcional de inteligencia comercial.
 
 Cuando se incorporen dependencias, pruebas y herramientas de calidad, sus comandos se documentarán aquí y en los archivos de configuración correspondientes.
 
@@ -199,6 +201,44 @@ uv run python scripts/extract_denue_sample.py --entity-code 09 --start-record 1 
 El comando genera tres resultados: respuesta original Bronze, manifest.json y reports/generated/denue_profile_<run_id>.json. Los datos generados están excluidos de Git. Si el manifiesto supera la validación, el perfil informa campos presentes/no observados, nulos, duplicados, coordenadas y valores frecuentes de algunas propiedades.
 
 **Limitaciones actuales:** por ahora se consulta una única página; no implementa paginación completa, Silver, Gold ni comparación de conteos con Cuantificar. Los campos identificadores requeridos y el esquema continúan sujetos a la verificación de una respuesta real. El DAG de Airflow está creado, pero no se incluye todavía una configuración Docker Compose validada.
+
+### Ejecutar Airflow localmente
+
+El Compose se basa en la plantilla oficial de Airflow 3.3.2, adaptada para usar LocalExecutor y evitar Redis/workers para el primer flujo. Es una configuración de desarrollo, no de producción. Airflow recomienda reservar al menos 4 GB de memoria para su entorno en Docker; el consumo real dependerá de los servicios y la carga. Consulta la [guía oficial de Docker Compose de Airflow](https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/).
+
+1. Configura el archivo local:
+
+~~~bash
+cp .env.example .env
+~~~
+
+Edita .env con tu token de DENUE. En Linux, cambia AIRFLOW_UID al resultado de id -u para que los archivos montados no queden con un propietario inesperado. No subas este archivo al repo.
+
+2. Crea directorios de ejecución e inicializa Airflow:
+
+~~~bash
+mkdir -p dags logs plugins config data reports
+docker compose up airflow-init
+~~~
+
+3. Arranca los servicios:
+
+~~~bash
+docker compose up -d
+docker compose ps
+~~~
+
+Abre http://localhost:8080. Las credenciales de desarrollo iniciales son las especificadas en .env (AIRFLOW_WWW_USER_USERNAME y AIRFLOW_WWW_USER_PASSWORD, por defecto airflow / airflow).
+
+4. En la interfaz, localiza rendify_denue_initial_extraction y lánzalo manualmente. El DAG debe crear datos bajo data/bronze/denue/ y un perfil bajo reports/generated/. Si falla, revisa los logs de las tareas y que DENUE_API_TOKEN esté presente en .env.
+
+Para detener sin borrar la metadata ni los datos:
+
+~~~bash
+docker compose down
+~~~
+
+Esta configuración aún requiere una prueba real en la máquina de desarrollo. Para borrar la base de metadata local y reiniciar Airflow desde cero, Docker ofrece docker compose down --volumes, pero eso elimina el volumen de PostgreSQL; no ejecutes esa variante si necesitas conservar historial.
 
 ## Forma de trabajo
 

@@ -105,7 +105,10 @@ def extract_sample(
             "extraction_finished_at": _iso_utc(_utc_now()),
             "result_status": "failed",
             "error_type": type(exc).__name__,
-            "error_message": str(exc)[:300],
+            "error_message": (
+                str(exc)[:300] if isinstance(exc, DenueApiError)
+                else "Unexpected extraction failure; see sanitized runtime logs."
+            ),
         })
         _write_json(manifest_path, manifest)
         raise

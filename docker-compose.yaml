@@ -51,8 +51,6 @@ x-airflow-common:
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
   image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.3.2-python3.12}
   # build: .
-  env_file:
-    - ${ENV_FILE_PATH:-.env}
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -76,7 +74,6 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     PYTHONPATH: /opt/airflow/src
-    DENUE_API_TOKEN: ${DENUE_API_TOKEN:-}
     RENDIFY_DATA_DIR: /opt/airflow/data
     RENDIFY_REPORTS_DIR: /opt/airflow/reports/generated
     RENDIFY_CODE_VERSION: ${RENDIFY_CODE_VERSION:-local}
@@ -130,6 +127,9 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    environment:
+      <<: *airflow-common-env
+      DENUE_API_TOKEN: ${DENUE_API_TOKEN:-}
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
       interval: 30s

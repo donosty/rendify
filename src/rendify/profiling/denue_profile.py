@@ -9,7 +9,9 @@ from pathlib import Path
 from typing import Any
 
 PROFILE_FIELDS = (
-    "Id", "CLEE", "Nombre", "Clase_actividad", "Estrato", "Tipo", "Colonia",
+    "Id", "CLEE", "Nombre", "Clase_actividad", "CLASE_ACTIVIDAD_ID",
+    "SECTOR_ACTIVIDAD_ID", "SUBSECTOR_ACTIVIDAD_ID", "RAMA_ACTIVIDAD_ID",
+    "SUBRAMA_ACTIVIDAD_ID", "Estrato", "Tipo", "Colonia", "Tipo_Asentamiento",
     "CP", "Ubicacion", "AreaGeo", "AGEB", "Manzana", "Longitud", "Latitud",
     "Fecha_Alta",
 )

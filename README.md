@@ -4,7 +4,7 @@
 
 Rendify es un proyecto colaborativo de datos y software que busca ayudar a emprendedores, pequeños negocios y empresarios a explorar y comparar zonas geográficas mediante datos oficiales y otras fuentes verificables. La primera etapa se enfocará en la Ciudad de México y preferirá las alcaldías como unidad inicial de comparación, sujeto a la validación de las fuentes.
 
-> **Estado actual:** repositorio en etapa de definición y auditoría de datos. La estructura inicial está creada; el extractor, el modelo analítico y la aplicación todavía no están implementados. La cobertura y compatibilidad de las fuentes aún deben verificarse.
+> **Estado actual:** existe una prueba de concepto del extractor DENUE que conserva la respuesta en Bronze, escribe un manifiesto y puede validar/perfilar muestras con pruebas unitarias. Aún falta ejecutar una consulta autenticada real, verificar el esquema devuelto, configurar y probar el entorno Docker de Airflow y construir Silver/Gold. La cobertura y compatibilidad de las fuentes siguen pendientes.
 
 ## El problema
 
@@ -73,12 +73,12 @@ Las fases son una secuencia de trabajo, no una promesa de que todos los componen
 |---|---|---|
 | Lenguaje | Python 3.12 | Configurado como versión del proyecto |
 | Entorno y dependencias | uv | Configuración inicial presente; dependencias por definir |
-| Extracción | requests o httpx | Pendiente |
+| Extracción | Biblioteca estándar urllib en la prueba de concepto | Implementación inicial; dependencias externas evitadas por ahora |
 | Análisis local | Pandas | Pendiente; se usará si aporta valor |
-| Calidad y estilo | pytest, Ruff | Pendiente de configuración |
+| Calidad y estilo | unittest de Python en esta primera etapa; Ruff por configurar | Pruebas unitarias iniciales añadidas; no se han ejecutado en un entorno local en esta sesión |
 | Almacenamiento local | PostgreSQL + PostGIS | Fase posterior |
 | Transformación | SQL y Python | Fase posterior |
-| Orquestación | Apache Airflow | Planeado desde el primer pipeline orquestado; la lógica de extracción seguirá siendo ejecutable fuera de Airflow |
+| Orquestación | Apache Airflow 3.x | DAG inicial añadido; falta configurar Docker Compose y validar ejecución en Airflow |
 | Cloud | Google Cloud Storage, BigQuery y servicios adecuados de GCP | Después de validar el flujo local |
 | API y web | FastAPI; React + TypeScript u otra opción adecuada | Fase posterior |
 | CI/CD | GitHub Actions | Pendiente |
@@ -90,7 +90,7 @@ La estructura del código separa orquestación, lógica de aplicación, pruebas 
 ~~~text
 rendify/
 ├── dags/
-│   └── denue_initial_extraction.py  # Punto de entrada Airflow; implementar
+│   └── denue_initial_extraction.py  # DAG inicial de muestra; aún no probado en Airflow
 ├── config/
 │   └── reference/
 │       └── README.md                # Política para catálogos y mapeos versionados
@@ -118,12 +118,14 @@ rendify/
 ├── schemas/
 │   └── README.md                    # Contratos una vez validado el esquema real
 ├── scripts/
-│   └── profile_denue.py             # Punto de entrada útil para perfilado local
+│   ├── extract_denue_sample.py      # Ejecuta muestra fuera de Airflow
+│   └── profile_denue.py             # Plantilla previa de perfilado
 ├── src/rendify/
 │   ├── denue/                       # Cliente, extracción, transformación y validación
 │   └── profiling/                   # Perfilado y reportes de calidad
 ├── tests/
-│   └── denue/                       # Pruebas de cliente, contrato y calidad
+│   └── denue/                       # Pruebas unitarias con respuestas simuladas
+├── .env.example                    # Nombres de variables, sin secretos
 ├── pyproject.toml
 └── uv.lock
 ~~~
@@ -156,6 +158,47 @@ uv run rendify
 En el estado actual, el último comando ejecuta la entrada de plantilla e imprime `Hello from rendify!`. Esto solo comprueba la entrada inicial cuando se ejecuta correctamente; todavía no existe una aplicación funcional de inteligencia comercial.
 
 Cuando se incorporen dependencias, pruebas y herramientas de calidad, sus comandos se documentarán aquí y en los archivos de configuración correspondientes.
+
+### Prueba de extracción DENUE (muestra pequeña)
+
+Esta prueba de concepto consulta una sola página mediante BuscarAreaAct para CDMX (entidad 09) y guarda la respuesta original en data/bronze/denue/, más un manifiesto JSON con parámetros no secretos, estado, número de registros y checksum. No es una extracción completa ni un contrato definitivo de DENUE.
+
+1. Crea tu archivo local de variables y coloca el token proporcionado por INEGI:
+
+~~~bash
+cp .env.example .env
+# Edita .env y establece DENUE_API_TOKEN con tu token real.
+set -a
+source .env
+set +a
+~~~
+
+No compartas ni subas .env. El token de DENUE forma parte de la ruta de la petición, por lo que no debe registrarse la URL completa.
+
+2. Instala el paquete del proyecto y ejecuta las pruebas unitarias:
+
+~~~bash
+uv sync
+uv run python -m unittest discover -s tests -v
+~~~
+
+Las pruebas usan respuestas simuladas; no necesitan el token y no demuestran que la conexión real a DENUE esté validada.
+
+3. Ejecuta la muestra. Los parámetros predeterminados solicitan registros del 1 al 15 de la entidad 09:
+
+~~~bash
+uv run python scripts/extract_denue_sample.py
+~~~
+
+Se puede cambiar el rango para pruebas pequeñas:
+
+~~~bash
+uv run python scripts/extract_denue_sample.py --entity-code 09 --start-record 1 --end-record 15
+~~~
+
+El comando genera tres resultados: respuesta original Bronze, manifest.json y reports/generated/denue_profile_<run_id>.json. Los datos generados están excluidos de Git. Si el manifiesto supera la validación, el perfil informa campos presentes/no observados, nulos, duplicados, coordenadas y valores frecuentes de algunas propiedades.
+
+**Limitaciones actuales:** por ahora se consulta una única página; no implementa paginación completa, Silver, Gold ni comparación de conteos con Cuantificar. Los campos identificadores requeridos y el esquema continúan sujetos a la verificación de una respuesta real. El DAG de Airflow está creado, pero no se incluye todavía una configuración Docker Compose validada.
 
 ## Forma de trabajo
 

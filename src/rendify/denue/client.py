@@ -117,9 +117,9 @@ def fetch_page(
             raw_body = response.read()
     except HTTPError as exc:
         raise DenueApiError(f"DENUE returned HTTP status {exc.code}.") from None
-    except URLError as exc:
-        reason = str(exc.reason)[:200]
-        raise DenueApiError(f"DENUE request failed at transport layer: {reason}") from None
+    except URLError:
+        # Do not propagate urllib diagnostics: they may contain the tokenized URL.
+        raise DenueApiError("DENUE request failed at transport layer.") from None
     except TimeoutError:
         raise DenueApiError("DENUE request timed out.") from None
 

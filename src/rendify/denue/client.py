@@ -20,6 +20,17 @@ def build_buscar_area_act_url(
 ) -> str:
 
     """Build the URL for a DENUE BuscarAreaAct query."""
+
+    # Validate the API token.
+    if not token or not token.strip():
+        raise ValueError("The DENUE API token cannot be empty.")
+
+    # Validate the requested record range.
+    if record_start < 1:
+        raise ValueError("record_start must be greater than or equal to 1.")
+
+    if record_end < record_start:
+        raise ValueError("record_end must be greater than or equal to record_start.")
     
     parameters = [
         entity,

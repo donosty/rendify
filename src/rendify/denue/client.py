@@ -3,6 +3,7 @@
 import json
 
 from typing import Any
+from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -10,6 +11,14 @@ from urllib.request import Request, urlopen
 from rendify.denue.exceptions import DenueAPIError
 
 BASE_URL = "https://www.inegi.org.mx/app/api/denue/v1/consulta"
+
+@dataclass(frozen=True)
+class DenueAPIResponse:
+    """HTTP response received from the DENUE API"""
+    status_code: int
+    content_type: str
+    raw_body: bytes
+    records: list[dict[str, Any]]
 
 def build_buscar_area_act_url(
     entity: str,
@@ -109,7 +118,9 @@ def fetch_buscar_area_act(
     try:
         # Keep network failures behind one domain-specific exception.
         with urlopen(request, timeout=timeout) as response:
-            response_body = response.read()
+            raw_body = response.read()
+            status_code = response.status
+            content_type = response.headers.get("Content-Type", "")
     except HTTPError as error:
         raise DenueAPIError(
             f"DENUE returned HTTP status {error.code}"
@@ -125,7 +136,7 @@ def fetch_buscar_area_act(
 
     try:
         # ``utf-8-sig`` also accepts regular UTF-8 while removing a BOM.
-        records = json.loads(response_body.decode("utf-8-sig"))
+        records = json.loads(raw_body.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise DenueAPIError(
             "DENUE returned a response that is not valid UTF-8 JSON"
@@ -142,4 +153,9 @@ def fetch_buscar_area_act(
             "DENUE response contains elements that are not JSON objects"
         )
 
-    return records
+    return DenueAPIResponse(
+        status_code=status_code,
+        content_type=content_type,
+        raw_body=raw_body,
+        records=records
+    )

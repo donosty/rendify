@@ -84,5 +84,15 @@ class TestDenueAPIIntegration(unittest.TestCase):
                 print(f"{field}: absent")
 
 
+
+        response = records.records
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(response.raw_body), 0)
+
+        print(f"\nHTTP status: {response.status_code}")
+        print(f"Content-Type: {response.content_type}")
+        print(f"Records received: {len(records)}")
+
+
 if __name__ == "__main__":
     unittest.main()

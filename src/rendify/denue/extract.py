@@ -1,0 +1,113 @@
+import hashlib
+import json
+import re
+
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from rendify.denue.client import DenueAPIResponse
+
+def _normalize_run_id(run_id: str) -> str:
+    """Convert a run id into a safe filesystem directory name"""
+
+    if not run_id or not run_id.strip():
+        raise ValueError("run_id cannot be empty")
+
+    safe_run_id = re.sub(r"[^a-zA-Z0-9._-]", "_", run_id)
+
+    if safe_run_id in {".", ".."}:
+        raise ValueError("Invalid run_id.")
+
+    return safe_run_id
+
+
+def save_bronze_response(
+    response: DenueAPIResponse,
+    *,
+    bronze_root: Path,
+    run_id: str,
+    query_parameters: dict[str, Any],
+    extracted_at: datetime | None = None
+) -> Path:
+    """
+    Persist the original DENUE response and its extraction manifest
+    Returns the path to manifest.json
+    """
+
+    if extracted_at is None:
+        extracted_at = datetime.now(timezone.utc)
+
+    if(
+        extracted_at.tzinfo is None or
+        extracted_at.utcoffset() is None
+    ):
+        raise ValueError("extracted_at must be timezone.aware")
+
+    extracted_at = extracted_at.astimezone(timezone.utc)
+
+    if not isinstance(query_parameters, dict):
+        raise ValueError("query_parameters must be a dictionary")
+
+    #Prevent credentials from being included in the manifest
+    for key in query_parameters:
+        if "token" in key.lower() or "secret" in key.lower():
+            raise ValueError(
+                "Credentials cannot be included in query_parameters"
+            )
+
+    safe_run_id = _normalize_run_id(run_id)
+
+    extraction_date = extracted_at.date().isoformat()
+
+    extraction_dir = (
+        bronze_root /
+        f"extraction_date={extraction_date}" /
+        f"run_id={safe_run_id}"
+    )
+
+    extraction_dir.mkdir(parents=True, exist_ok=True)
+
+    response_path = extraction_dir / "response.json"
+    manifest_path = extraction_dir / "manifest.json"
+
+    raw_body = response.raw_body
+
+    response_sha256 = hashlib.sha256(raw_body).hexdigest()
+
+    manifest = {
+        "source": "DENUE",
+        "method": "BuscarAreaAct",
+        "run_id": run_id,
+        "extracted_at": extracted_at.isoformat(),
+        "extraction_date": extraction_date,
+        "query_parameters": query_parameters,
+        "http": {
+            "status_code": response.status_code,
+            "content_type": response.content_type
+        },
+        "record_count": len(response.records),
+        "response_size_bytes": len(raw_body),
+        "sha256": response_sha256,
+        "files": {
+            "response": "response.json",
+        }
+    }
+
+    manifest_bytes = json.dumps(
+        manifest,
+        ensure_ascii=False,
+        indent=2
+    ).encode("utf-8")
+
+    #Write the response first, preserving its original bytes
+    response_tmp = extraction_dir / "response.json.tmp"
+    response_tmp.write_bytes(raw_body)
+    response_tmp.replace(response_path)
+
+    # Write the manifest last so it describes a completed response file.
+    manifest_tmp = extraction_dir / "manifest.json.tmp"
+    manifest_tmp.write_bytes(manifest_bytes)
+    manifest_tmp.replace(manifest_path)
+
+    return manifest_path

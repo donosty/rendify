@@ -6,7 +6,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from rendify.denue.client import DenueAPIResponse
+from rendify.denue.client import (
+    DenueAPIResponse, 
+    fetch_buscar_area_act
+)
 
 def _normalize_run_id(run_id: str) -> str:
     """Convert a run id into a safe filesystem directory name"""
@@ -111,3 +114,71 @@ def save_bronze_response(
     manifest_tmp.replace(manifest_path)
 
     return manifest_path
+
+
+def extract_denue_to_bronze(
+    *,
+    token: str,
+    bronze_root: Path,
+    run_id: str,
+    entity: str = "09",
+    municipality: str = "0",
+    locality: str = "0",
+    ageb: str = "0",
+    block: str = "0",
+    sector: str = "0",
+    subsector: str = "0",
+    branch: str = "0",
+    class_code: str = "0",
+    establishment_name: str = "0",
+    record_start: int = 1,
+    record_end: int = 15,
+    establishment_id: str = "0",
+    timeout: float = 30.0,
+    extracted_at: datetime | None = None,
+) -> Path:
+    """
+    Extract DENUE records and persist the original response in Bronze.
+    """
+
+    response = fetch_buscar_area_act(
+        entity=entity,
+        municipality=municipality,
+        locality=locality,
+        ageb=ageb,
+        block=block,
+        sector=sector,
+        subsector=subsector,
+        branch=branch,
+        class_code=class_code,
+        establishment_name=establishment_name,
+        record_start=record_start,
+        record_end=record_end,
+        establishment_id=establishment_id,
+        token=token,
+        timeout=timeout,
+    )
+
+    query_parameters = {
+        "entity": entity,
+        "municipality": municipality,
+        "locality": locality,
+        "ageb": ageb,
+        "block": block,
+        "sector": sector,
+        "subsector": subsector,
+        "branch": branch,
+        "class_code": class_code,
+        "establishment_name": establishment_name,
+        "record_start": record_start,
+        "record_end": record_end,
+        "establishment_id": establishment_id,
+    }
+
+    return save_bronze_response(
+        response,
+        bronze_root=bronze_root,
+        run_id=run_id,
+        query_parameters=query_parameters,
+        extracted_at=extracted_at,
+    )

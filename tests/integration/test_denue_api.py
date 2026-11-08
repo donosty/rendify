@@ -9,9 +9,12 @@ from rendify.denue.client import fetch_buscar_area_act
 
 
 class TestDenueAPIIntegration(unittest.TestCase):
+    """Exercise the real DENUE service when an API token is configured."""
 
     @classmethod
     def setUpClass(cls):
+        # Integration tests are opt-in because they require credentials and a
+        # live external service; unit tests cover deterministic behavior.
         load_dotenv()
 
         cls.token = os.getenv("DENUE_API_TOKEN")

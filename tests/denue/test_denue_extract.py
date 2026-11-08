@@ -12,8 +12,11 @@ from rendify.denue.extract import save_bronze_response, extract_denue_to_bronze
 
 
 class TestSaveBronzeResponse(unittest.TestCase):
+    """Verify Bronze persistence and the extraction-to-storage boundary."""
 
     def setUp(self):
+        # Keep the fixture byte-for-byte stable so checksum and preservation
+        # assertions test the storage contract rather than JSON formatting.
         self.raw_body = b'[{"Id":"12345","CLEE":"TEST-CLEE"}]'
 
         self.records = [

@@ -4,8 +4,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+
 class BronzeValidationError(ValueError):
-    """Raised when a Bronze extraction fails integrity validation"""
+    """Raised when a Bronze extraction fails schema or integrity validation."""
+
 
 def validate_bronze_response(
         manifest_path: Path,
@@ -13,8 +15,9 @@ def validate_bronze_response(
     """
     Validate a DENUE Bronze response using its manifest.
 
-    Returns a small validation summary without loading raw records
-    into Airflow XCom.
+    The manifest identifies the response file and expected metadata. The
+    function verifies both file integrity and the JSON record shape, then
+    returns a compact summary suitable for Airflow task metadata.
     """
     manifest_path = Path(manifest_path)
 
@@ -31,6 +34,8 @@ def validate_bronze_response(
     if not isinstance(manifest, dict):
         raise BronzeValidationError("Bronze manifest must be a JSON object")
 
+    # Check the manifest contract before using any metadata to locate or
+    # validate the response file.
     required_fields = {
         "source",
         "method",
@@ -125,6 +130,8 @@ def validate_bronze_response(
             "Invalid SHA-256 value in manifest."
         )
 
+    # The checksum detects changes to the raw payload, including formatting
+    # changes that would not necessarily alter the parsed records.
     actual_hash = hashlib.sha256(raw_body).hexdigest()
 
     if actual_hash != expected_hash:

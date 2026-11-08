@@ -4,6 +4,8 @@ from rendify.denue.client import build_buscar_area_act_url
 
 
 class TestBuildBuscarAreaActUrl(unittest.TestCase):
+    """Verify URL construction, encoding, and input validation."""
+
     def build_url(
         self,
         establishment_name="0",

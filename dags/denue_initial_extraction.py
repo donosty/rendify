@@ -10,6 +10,8 @@ from rendify.denue.extract import extract_denue_to_bronze
 from rendify.denue.validate import validate_bronze_response
 
 
+# Shared filesystem location where the extractor writes the raw response and
+# its manifest. The validation task reads the manifest from this same volume.
 BRONZE_ROOT = Path("/opt/airflow/data/bronze/denue")
 
 
@@ -24,6 +26,8 @@ BRONZE_ROOT = Path("/opt/airflow/data/bronze/denue")
 )
 def denue_initial_extraction():
 
+    # This task returns only the manifest path; the response itself remains in
+    # Bronze instead of being serialized into Airflow's XCom backend.
     @task(
         task_id="extract_denue",
         retries=2,
@@ -42,6 +46,9 @@ def denue_initial_extraction():
         context = get_current_context()
         run_id = context["dag_run"].run_id
 
+        # "0" means no filter for the DENUE dimensions. This initial run
+        # intentionally requests a small sample (records 1 through 15) to
+        # verify connectivity and the Bronze persistence contract.
         manifest_path = extract_denue_to_bronze(
             token=token,
             bronze_root=BRONZE_ROOT,
@@ -63,6 +70,8 @@ def denue_initial_extraction():
 
         return str(manifest_path)
 
+    # Validation checks the manifest, response metadata, size, checksum, and
+    # record count before downstream processing can consume this extraction.
     @task(task_id="validate_bronze")
     def validate_bronze(manifest_path: str) -> dict:
         """Validate the Bronze extraction referenced by its manifest."""
@@ -73,6 +82,8 @@ def denue_initial_extraction():
 
         return result
 
+    # Passing the returned path creates the dependency: validation runs only
+    # after extraction has completed successfully.
     manifest_path = extract_denue()
 
     validate_bronze(manifest_path)

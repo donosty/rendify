@@ -12,7 +12,7 @@ from rendify.denue.client import (
 )
 
 def _normalize_run_id(run_id: str) -> str:
-    """Convert a run id into a safe filesystem directory name"""
+    """Convert an Airflow run ID into a safe, non-traversing directory name."""
 
     if not run_id or not run_id.strip():
         raise ValueError("run_id cannot be empty")
@@ -34,8 +34,10 @@ def save_bronze_response(
     extracted_at: datetime | None = None
 ) -> Path:
     """
-    Persist the original DENUE response and its extraction manifest
-    Returns the path to manifest.json
+    Persist the original response and metadata manifest as one Bronze unit.
+
+    The response is written before the manifest so a manifest only appears
+    after the payload is available and can be validated.
     """
 
     if extracted_at is None:
@@ -52,7 +54,7 @@ def save_bronze_response(
     if not isinstance(query_parameters, dict):
         raise ValueError("query_parameters must be a dictionary")
 
-    #Prevent credentials from being included in the manifest
+    # Prevent credentials from being included in query metadata.
     for key in query_parameters:
         if "token" in key.lower() or "secret" in key.lower():
             raise ValueError(
@@ -103,7 +105,7 @@ def save_bronze_response(
         indent=2
     ).encode("utf-8")
 
-    #Write the response first, preserving its original bytes
+    # Write the response first, preserving its original bytes.
     response_tmp = extraction_dir / "response.json.tmp"
     response_tmp.write_bytes(raw_body)
     response_tmp.replace(response_path)
@@ -138,7 +140,10 @@ def extract_denue_to_bronze(
     extracted_at: datetime | None = None,
 ) -> Path:
     """
-    Extract DENUE records and persist the original response in Bronze.
+    Fetch a DENUE sample, build auditable query metadata, and persist it.
+
+    Only the manifest path is returned; the potentially larger response stays
+    in the Bronze filesystem rather than being passed through task metadata.
     """
 
     response = fetch_buscar_area_act(

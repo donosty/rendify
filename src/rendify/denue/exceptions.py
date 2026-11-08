@@ -2,4 +2,4 @@
 
 
 class DenueAPIError(Exception):
-    """Report transport, decoding, or shape errors from the DENUE client."""
+    """Report transport, decoding, or response-shape errors from the client."""

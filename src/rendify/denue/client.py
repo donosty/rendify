@@ -12,9 +12,11 @@ from rendify.denue.exceptions import DenueAPIError
 
 BASE_URL = "https://www.inegi.org.mx/app/api/denue/v1/consulta"
 
+
 @dataclass(frozen=True)
 class DenueAPIResponse:
-    """HTTP response received from the DENUE API"""
+    """Keep both the raw HTTP payload and its validated parsed records."""
+
     status_code: int
     content_type: str
     raw_body: bytes
@@ -36,7 +38,7 @@ def build_buscar_area_act_url(
     establishment_id: str,
     token: str,
 ) -> str:
-    """Build a validated, URL-encoded DENUE ``BuscarAreaAct`` endpoint."""
+    """Build the endpoint URL while validating and encoding all path fields."""
 
     # Reject requests that cannot be authenticated.
     if not token or not token.strip():
@@ -94,7 +96,7 @@ def fetch_buscar_area_act(
     token: str,
     timeout: float = 30.0,
 ) -> list[dict[str, Any]]:
-    """Request an area/activity sample and return its JSON object records."""
+    """Fetch DENUE records and normalize transport/parsing failures."""
 
     url = build_buscar_area_act_url(
         entity=entity,
@@ -113,6 +115,8 @@ def fetch_buscar_area_act(
         token=token,
     )
 
+    # Request JSON explicitly; retaining the raw bytes allows later integrity
+    # checks and avoids re-serializing the source response.
     request = Request(url, headers={"Accept": "application/json"})
 
     try:

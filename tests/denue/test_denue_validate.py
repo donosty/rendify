@@ -13,8 +13,11 @@ from rendify.denue.validate import (
 
 
 class TestValidateBronzeResponse(unittest.TestCase):
+    """Verify manifest checks and raw-response integrity validation."""
 
     def setUp(self):
+        # Use a complete, deterministic Bronze fixture as the baseline for
+        # tests that mutate one validation condition at a time.
         self.temporary_dir = TemporaryDirectory()
         self.addCleanup(self.temporary_dir.cleanup)
 

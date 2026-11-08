@@ -1,55 +1,37 @@
 # Registro de activos de datos — Rendify
 
-**Versión:** 0.1  
-**Estado:** inventario inicial; actualizar cuando se ejecute la primera extracción.
+**Versión:** 0.2  
+**Actualización:** 2026-11-07
 
-El registro identifica fuentes y productos, sus propósitos, responsables, condiciones de uso y estado de validación. Una fuente candidata no equivale a un activo validado ni a un dataset listo para consumo.
+El registro identifica fuentes y productos, sus propósitos, responsables y estado. Se distingue una integración técnica de una validación semántica o aprobación para producto.
 
-## 1. Estados controlados
+## Estados
 
-- **Candidata:** considerada para un caso de uso, aún no verificada.
-- **En auditoría:** documentación o una muestra están siendo revisadas.
-- **Validada técnicamente:** acceso, estructura y controles técnicos verificados con evidencia.
-- **Validada para integración:** también se comprobó semántica, periodicidad, geografía y posibilidad de unión con los otros datasets.
-- **Aprobada para producto:** existe producto derivado con reglas, cobertura y limitaciones documentadas.
-- **Retirada:** ya no se utiliza; queda documentado el motivo y el tratamiento de copias.
+- **Candidata:** considerada, aún sin revisión suficiente.
+- **En auditoría:** documentación, muestra o comportamiento bajo revisión.
+- **Integración técnica inicial:** existe código de acceso/ingesta, pero quedan verificaciones de fuente y producto.
+- **Validada técnicamente:** acceso, estructura y controles confirmados con evidencia repetible.
+- **Validada para integración:** se comprobaron también semántica, periodicidad, geografía y posibilidad de unión.
+- **Aprobada para producto:** existe un derivado con reglas, cobertura y limitaciones documentadas.
+- **Retirada:** fuera de uso con decisión registrada.
 
-## 2. Registro inicial
+## Registro
 
-| Asset ID | Activo | Proveedor | Uso previsto | Estado | Responsable interno inicial | Pendientes principales |
-|---|---|---|---|---|---|---|
-| SRC-DENUE | API/directorio DENUE | INEGI | Identificación, actividad, estrato y ubicación de establecimientos. | En auditoría documental; extracción autenticada pendiente | Data Steward + Data Engineer | Probar método y token, campos, paginación/volumen, actividades SCIAN, condiciones de reutilización y cobertura geográfica. |
-| SRC-CCPV20 | Censo de Población y Vivienda 2020 | INEGI | Contexto de población/vivienda. | Candidata | Data Steward | Seleccionar variables, periodo, nivel territorial y formato de descarga. |
-| SRC-CE24 | Censos Económicos 2024 | INEGI | Referencias económicas agregadas. | Candidata | Product Owner + Data Steward | Identificar variables publicadas, actividad, granularidad y reglas de confidencialidad. |
-| SRC-GEO | Catálogo de claves geoestadísticas/cartografía | INEGI | Normalización y cruce geográfico. | Candidata | Data Steward + Data Engineer | Seleccionar versión oficial, claves y límites apropiados. |
-| SRC-ENIGH24 | ENIGH 2024 | INEGI | Posible contexto de gasto/ingreso de hogares en etapa posterior. | Candidata; fuera de la extracción inicial | Analítica/ML | Revisar diseño muestral y determinar si existe un uso responsable al nivel territorial deseado. |
-| PRD-GOLD-ACTIVITY-AREA | Indicadores de actividad por zona | Rendify (derivado) | Comparar presencia/composición de negocios. | No implementado | Product Owner + Analítica/ML | Definir granularidad, periodos, fórmula, calidad y linaje cuando Silver esté disponible. |
+| Asset ID | Activo | Uso previsto | Estado (7 nov 2026) | Pendientes principales |
+|---|---|---|---|---|
+| SRC-DENUE | API/directorio DENUE — INEGI | Establecimientos, actividad y ubicación | **Integración técnica inicial**: cliente, Bronze y validación implementados; DAG de muestra presente | Evidencia de ejecución real; cobertura, campos, SCIAN, filtros, límites y condiciones de uso. |
+| SRC-CCPV20 | Censo de Población y Vivienda 2020 | Contexto de población/vivienda | Candidata | Variables, periodo y granularidad compatibles. |
+| SRC-CE24 | Censos Económicos 2024 | Referencias económicas agregadas | Candidata | Tablas publicadas, nivel geográfico y confidencialidad. |
+| SRC-GEO | Catálogo geoestadístico/cartografía | Claves y límites para integración espacial | Candidata | Versión, claves y resolución territorial. |
+| SRC-ENIGH24 | ENIGH 2024 | Contexto ingreso/gasto | Posible fase posterior | Diseño muestral y pertinencia geográfica. |
+| PRD-GOLD-ACTIVITY-AREA | Indicadores de actividad por zona | Comparación de zonas/actividades | No implementado | Contrato Silver, definición de métricas, cobertura y linaje. |
 
-Los nombres y estados de las fuentes derivan del plan actual. Los responsables son roles funcionales a asignar entre los dos colaboradores; esta tabla no pretende afirmar que alguien ya haya aceptado formalmente cada rol.
+Los roles funcionales se asignan entre el equipo en su plan de trabajo; el registro no implica asignaciones individuales formales.
 
-## 3. Metadatos mínimos de un activo
+## Metadatos mínimos
 
-Para cada nuevo activo añadir:
-- Asset ID y nombre;
-- descripción de negocio y preguntas que soporta;
-- tipo: fuente, Bronze, Silver, Gold, catálogo de referencia o dataset de ML;
-- propietario/publicador y responsable interno;
-- ruta o tabla y ambiente donde vive;
-- granularidad, claves, periodo de referencia y fecha de actualización;
-- sistema fuente, método y condiciones de uso;
-- clasificación de acceso y campos restringidos;
-- versión del esquema, diccionario y reglas de calidad;
-- upstream/downstream (linaje);
-- estado, evidencia y limitaciones;
-- política de retención y decisión de publicación.
+Por activo: ID, propósito, tipo, proveedor, responsable, ubicación, granularidad, claves, periodo, fecha de actualización, condiciones de uso, clasificación de acceso, contrato, reglas, linaje, estado, evidencia, limitaciones y retención.
 
-## 4. Registro de incidencias y cambios
+## Incidencias y cambios
 
-Los problemas que afecten semántica, calidad o disponibilidad se registran como issue de GitHub o en un registro ligado a la ejecución. El issue debe incluir el Asset ID, dataset, run ID, regla fallida, impacto, responsable y resolución. Cambios de definición o esquema deben mantener histórico a través de PR y commits, no sustituyendo documentación sin rastro.
-
-## 5. Referencias
-
-- [Inventario de fuentes técnicas](../data-sources.md)
-- [Investigación de API DENUE](../denue-api-research.md)
-- [Marco de gobierno de datos](data-governance-charter.md)
-- [Plan de gestión de datos](data-management-plan.md)
+Registrar problemas mediante issue o registro ligado a run ID, regla, impacto, responsable y resolución. Cambios de semántica, esquema o métrica deben entrar mediante pull request.

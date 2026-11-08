@@ -1,21 +1,25 @@
 # Gobierno de datos — índice
 
-Esta carpeta reúne los controles de gestión de datos que Rendify aplica de forma gradual, inspirándose en disciplinas de DAMA-DMBOK. Es una adaptación ligera para un equipo pequeño, no una certificación ni una implantación completa del marco.
+Esta carpeta reúne prácticas de gestión de datos inspiradas en DAMA-DMBOK, aplicadas de forma gradual y proporcional a un equipo pequeño. No representa una certificación ni una implantación completa.
 
 ## Documentos
 
-- [Marco de gobierno de datos](data-governance-charter.md): principios, responsabilidades, derechos de decisión y controles de ciclo de vida.
-- [Plan de gestión de datos](data-management-plan.md): cómo registrar, ingerir, transformar, proteger, publicar y retirar activos.
-- [Diccionario de datos](data-dictionary.md): definiciones de origen y nombres canónicos propuestos para Bronze, Silver y Gold.
-- [Reglas de calidad de datos](data-quality-rules.md): controles, severidad, evidencia y criterios de promoción.
-- [Registro de activos de datos](data-assets-register.md): fuentes y productos, responsables, estado y pendientes.
+- [Marco de gobierno](data-governance-charter.md): principios, responsabilidades y decisiones.
+- [Plan de gestión](data-management-plan.md): ciclo de vida y controles.
+- [Diccionario](data-dictionary.md): metadatos Bronze implementados y contratos Silver/Gold propuestos.
+- [Reglas de calidad](data-quality-rules.md): controles Bronze en código y reglas futuras.
+- [Registro de activos](data-assets-register.md): fuentes y productos con estado diferenciado.
 
-## Flujo de trabajo
+## Estado técnico relacionado
 
-1. Registrar la fuente en el inventario de activos antes de ingestas importantes.
-2. Revisar documentación, permisos/condiciones de uso, semántica, cobertura y granularidad.
-3. Preservar la respuesta de origen en Bronze junto con un manifiesto seguro.
-4. Acordar un contrato con campos definidos en el diccionario.
-5. Validar y documentar las transformaciones y excepciones al promover a Silver.
-6. Aprobar la definición, calidad y limitaciones antes de publicar Gold.
-7. Actualizar este conjunto de documentos mediante pull request cuando cambie una fuente, un esquema o una métrica.
+El primer flujo DENUE implementa cliente, extracción/persistencia Bronze y validación de integridad. Silver, Gold, perfilado y cuarentena todavía no están implementados. El DAG orquesta una muestra manual de 15 registros para CDMX.
+
+## Flujo de gobierno
+
+1. Registrar y auditar fuente, condiciones de uso y cobertura.
+2. Preservar original en Bronze con manifiesto sin credenciales.
+3. Confirmar los campos y documentar el contrato.
+4. Implementar transformaciones y controles de Silver.
+5. Registrar excepciones con linaje a Bronze.
+6. Aprobar métricas y limitaciones antes de publicar Gold.
+7. Mantener cambios por pull request y decisiones trazables.

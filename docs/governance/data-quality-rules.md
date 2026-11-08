@@ -1,81 +1,47 @@
 # Reglas de calidad de datos — Rendify
 
-**Versión:** 0.1  
-**Estado:** versión inicial de reglas; los detalles específicos de DENUE quedan pendientes de confirmar con una muestra real.
+**Versión:** 0.2  
+**Estado:** controles de integridad Bronze implementados; reglas Silver/Gold documentadas como criterios futuros.
 
-## 1. Propósito y severidad
+## 1. Severidad
 
-Las reglas de calidad establecen si un lote o un registro puede avanzar entre capas. El objetivo no es declarar los datos “perfectos”, sino detectar problemas, cuantificarlos y decidir qué usos son aceptables.
+- **Bloqueante:** impide aceptar el lote o promover la capa.
+- **Cuarentena:** retiene registros que no cumplen una regla individual.
+- **Advertencia:** requiere evaluar impacto.
+- **Informativa:** genera línea base sin bloquear.
 
-- **Bloqueante:** impide promover un lote o dataset al siguiente nivel.
-- **Cuarentena:** el registro individual no cumple una regla, pero el resto del lote podría procesarse si el contrato lo permite.
-- **Advertencia:** no bloquea automáticamente; se informa y requiere evaluar el impacto.
-- **Informativa:** registra una medición para establecer una línea base.
+Los umbrales de completitud se fijarán después de perfilar datos reales.
 
-Los umbrales de completitud y cobertura se determinarán a partir de muestras y del comportamiento confirmado de la fuente. No establecer porcentajes arbitrarios antes de tener evidencia.
+## 2. Bronze — estado de implementación
 
-## 2. Reglas Bronze — integridad de la ingesta
+| ID | Regla | Estado en código |
+|---|---|---|
+| BRZ-001 | Preservar el cuerpo de la respuesta en bytes originales. | Implementada en `save_bronze_response()`. |
+| BRZ-002 | Parsear JSON UTF-8 como lista de objetos. | Implementada en cliente y validador. |
+| BRZ-003 | Guardar manifiesto con fuente, método, run, timestamp, parámetros, status, conteo, tamaño, hash y archivo. | Implementada. |
+| BRZ-004 | Evitar token/secret dentro de query_parameters. | Implementada como validación de claves. |
+| BRZ-005 | Comprobar código HTTP 200. | Implementada en `validate_bronze_response()`. |
+| BRZ-006 | Verificar existencia, referencia relativa segura, tamaño y checksum. | Implementada. |
+| BRZ-007 | Comparar esquema recibido contra un contrato DENUE versionado. | Pendiente; no existe contrato de respuesta confirmado. |
+| BRZ-008 | Distinguir respuesta válida vacía de cobertura insuficiente. | El cliente admite lista vacía; la interpretación de cobertura está pendiente. |
 
-| ID | Regla | Severidad inicial | Evidencia |
-|---|---|---|---|
-| BRZ-001 | La respuesta original se guarda sin transformar su contenido y se registra la ruta. | Bloqueante | Archivo conservado y manifiesto. |
-| BRZ-002 | La petición termina con éxito HTTP y el cuerpo se puede interpretar según el formato esperado. | Bloqueante | Código HTTP, content type y parseo. |
-| BRZ-003 | Una respuesta válida vacía se distingue de una respuesta de error o de una respuesta inesperada. | Bloqueante | Estado explícito del resultado. |
-| BRZ-004 | El manifiesto registra método, parámetros no secretos, timestamps, run ID y cantidad de registros. | Bloqueante | Validación del manifiesto. |
-| BRZ-005 | No aparecen tokens, cabeceras de autenticación ni URL con secretos en archivos o logs. | Bloqueante | Revisión de logs y manifiestos; pruebas de saneamiento. |
-| BRZ-006 | Se registra checksum/huella del archivo si la herramienta elegida lo permite. | Informativa al inicio | Hash y algoritmo documentado. |
-| BRZ-007 | El esquema observado se compara con el contrato esperado. Un cambio inesperado se registra antes de promocionar. | Bloqueante para promoción | Diff de campos/tipos observados. |
+Los controles actuales prueban estructura e integridad técnica del payload; no confirman exactitud de la fuente ni cobertura geográfica.
 
-## 3. Reglas Silver — registros normalizados
+## 3. Silver — reglas pendientes de implementación
 
-| ID | Regla | Severidad inicial | Evidencia |
-|---|---|---|---|
-| SLV-001 | Los códigos de actividad y geografía se almacenan como texto para preservar formato y ceros iniciales. | Bloqueante | Tipo y prueba unitaria. |
-| SLV-002 | Cada fila mantiene referencia a su registro/fichero Bronze y a ingestion_run_id. | Bloqueante | Reconciliación de linaje. |
-| SLV-003 | El identificador elegido para deduplicación debe validarse como estable y suficientemente único antes de habilitar el control definitivo. | Pendiente de contrato | Perfil de Id y CLEE; no asumir la clave aún. |
-| SLV-004 | Latitud/longitud, cuando estén presentes, se convierten a decimal y deben pasar validación de formato/rango. | Cuarentena o advertencia según caso | Conteos de inválidos y regla de rango documentada. |
-| SLV-005 | Cada código SCIAN usado debe existir en la versión de catálogo registrada. | Cuarentena / bloqueante si afecta clasificación del producto | Cruce con catálogo versionado. |
-| SLV-006 | La clave de entidad y municipio/alcaldía debe validarse con catálogo geoestadístico versionado. | Cuarentena si no puede asignarse con fiabilidad | Código desconocido, fuente y versión del catálogo. |
-| SLV-007 | La colonia normalizada no se asigna si el mapeo es ambiguo; el valor original se conserva. | Advertencia / cuarentena de la asignación | Regla y estado de homologación. |
-| SLV-008 | Fecha_Alta se mantiene distinta de observation_date; no se transforma en fecha de apertura sin definición oficial válida. | Bloqueante para el uso que afirme apertura | Prueba de semántica y metadatos separados. |
-| SLV-009 | Campos de contacto se excluyen del contrato Silver inicial salvo aprobación de una necesidad concreta. | Bloqueante de alcance | Esquema Silver revisado. |
-| SLV-010 | Nulos en campos candidatos se perfilan y reportan; su obligatoriedad se decide después de validar la respuesta. | Informativa hasta fijar contrato | Perfil de nulos por campo. |
+- Mantener identificadores y claves SCIAN/geográficas como texto.
+- Validar claves contra catálogos INEGI/SCIAN versionados.
+- Definir deduplicación solo después de comprobar estabilidad y unicidad de Id/CLEE.
+- Validar coordenadas y preservar nulos/valores originales necesarios.
+- Mantener separado periodo fuente, fecha de extracción y fecha de observación.
+- No interpretar `Fecha_Alta` como apertura real sin documentación.
+- Conservar linaje a Bronze y run ID.
+- Excluir atributos personales/de contacto salvo justificación documentada.
 
-## 4. Reglas Gold — agregados e indicadores
+## 4. Gold — reglas pendientes de implementación
 
-| ID | Regla | Severidad inicial | Evidencia |
-|---|---|---|---|
-| GLD-001 | Toda métrica tiene definición, unidad, granularidad, periodo, filtros y versión documentados. | Bloqueante | Registro de métrica. |
-| GLD-002 | No se unen datasets con periodos o claves geográficas incompatibles sin una metodología explícita. | Bloqueante | Prueba de compatibilidad y decisión documentada. |
-| GLD-003 | El conteo de establecimientos define las reglas de deduplicación y la población de registros incluidos. | Bloqueante | SQL/código y pruebas. |
-| GLD-004 | El índice exploratorio no se presenta como rentabilidad o probabilidad de éxito. | Bloqueante | Revisión del producto y documentación. |
-| GLD-005 | Cada salida registra fuente, cobertura, fecha, versión de regla y linaje hacia los insumos. | Bloqueante | Metadatos de publicación. |
-| GLD-006 | La distribución geográfica no se compara si las unidades no tienen una definición comparable o denominador adecuado. | Bloqueante para comparaciones afectadas | Diccionario y metodología. |
-| GLD-007 | Features de ML documentan etiqueta, unidad de observación, fecha, ventana de predicción y riesgos de fuga temporal. | Bloqueante para ML | Especificación del dataset/modelo. |
+Toda métrica debe documentar definición, granularidad, unidad, periodo, filtros, población incluida, fórmula, versión y linaje. No unir geografías o periodos incompatibles sin metodología. No comunicar un conteo o índice exploratorio como rentabilidad/probabilidad de éxito.
 
-## 5. Cuarentena y tratamiento de excepciones
+## 5. Evidencia de calidad siguiente
 
-Cada registro o lote en cuarentena debe incluir:
-- referencia a ejecución y archivo Bronze;
-- regla que falló;
-- valor observado necesario para investigar, minimizando campos sensibles;
-- fecha/hora de detección;
-- decisión (corregir, aceptar como excepción, excluir de Silver o reintentar);
-- responsable y evidencia de la decisión.
-
-La cuarentena no sustituye conservar el original. No corregir o eliminar registros en Bronze.
-
-## 6. Perfil de calidad mínimo para el primer DENUE
-
-El informe inicial deberá incluir:
-- número de registros recibidos y número procesado;
-- campos presentes/ausentes y tipos observados;
-- identificadores nulos/duplicados, sin fijar una clave oficial hasta validarla;
-- nulos por campo prioritario;
-- coordenadas ausentes y no válidas;
-- distribución observada de códigos/descripciones de actividad y estratos;
-- claves geográficas reconocidas/no reconocidas;
-- estado de parseo y registros en cuarentena;
-- fecha de extracción, metodología y limitaciones de la muestra.
-
-Un perfil de muestra describe únicamente esa muestra; no demuestra automáticamente cobertura completa de CDMX ni de toda la fuente.
+Al perfilar una muestra representativa, reportar campos presentes, tipos, nulos, cardinalidad de identificadores, duplicados, coordenadas inválidas, distribución SCIAN, claves geográficas y cobertura de la consulta. Una muestra de 15 registros no establece una línea base representativa de toda la ciudad.

@@ -2,185 +2,261 @@
 
 **Inteligencia comercial geoespacial para apoyar decisiones de ubicación de negocios en México.**
 
-Rendify es un proyecto colaborativo de datos y software que busca ayudar a emprendedores, pequeños negocios y empresarios a explorar y comparar zonas geográficas mediante datos oficiales y otras fuentes verificables. La primera etapa se enfocará en la Ciudad de México y preferirá las alcaldías como unidad inicial de comparación, sujeto a la validación de las fuentes.
+Rendify es un proyecto colaborativo de ingeniería y análisis de datos que busca ayudar a emprendedores y negocios a explorar y comparar zonas geográficas mediante datos oficiales y otras fuentes verificables. El alcance inicial se concentra en la **Ciudad de México**, con las **alcaldías** como unidad geográfica preferida.
 
-> **Estado actual:** repositorio en etapa de definición y auditoría de datos. La estructura inicial está creada; el extractor, el modelo analítico y la aplicación todavía no están implementados. La cobertura y compatibilidad de las fuentes aún deben verificarse.
+> **Estado del proyecto (7 de noviembre de 2026):** ya existe una primera integración técnica con la API del DENUE. El repositorio contiene un cliente HTTP, extracción y persistencia en Bronze, validación de integridad, un DAG manual de Airflow 3 y pruebas unitarias. La extracción actual es una muestra pequeña de prueba; no representa todavía una ingesta completa de CDMX. Las capas Silver y Gold, el perfilado, los indicadores y la aplicación de usuario siguen pendientes.
 
-## El problema
+## Objetivo
 
-Antes de abrir o expandir un negocio, una persona necesita investigar el entorno comercial: qué tipos de establecimientos existen en distintas zonas, cómo se distribuyen y qué características demográficas o económicas pueden ayudar a contextualizar la decisión. Encontrar, combinar y evaluar estos datos puede ser difícil sin herramientas analíticas.
+Rendify pretende organizar información sobre establecimientos, actividad económica y contexto territorial para facilitar preguntas como:
 
-Rendify busca organizar esa información en indicadores comparables, con mapas y explicaciones que permitan investigar oportunidades y formular mejores preguntas de negocio.
+- ¿Cómo se distribuyen ciertos tipos de establecimientos entre alcaldías?
+- ¿Qué diferencias aparecen entre zonas para una misma actividad?
+- ¿Qué contexto demográfico o económico puede ayudar a interpretar esas diferencias?
 
-## Qué construiremos
+El producto será una herramienta de exploración y apoyo a la investigación. La presencia de establecimientos no demuestra éxito, demanda, rentabilidad ni probabilidad de supervivencia. Toda comparación deberá exponer su fuente, periodo, granularidad y limitaciones.
 
-El MVP se desarrollará incrementalmente. La intención inicial es permitir:
+## Alcance inicial
 
-- Explorar establecimientos por actividad económica y zona.
-- Comparar alcaldías con indicadores definidos y trazables.
-- Incorporar contexto demográfico y económico cuando las fuentes sean compatibles.
-- Visualizar resultados en mapas, tablas y comparaciones.
-- Mostrar procedencia, periodo de referencia, cobertura, datos faltantes y limitaciones.
-- Explicar los componentes de cualquier índice o puntuación que se publique.
+- **Geografía:** Ciudad de México; alcaldías como unidad inicial preferida.
+- **Actividades candidatas:** cafeterías, restaurantes, gimnasios y tiendas de artículos. Esta última categoría todavía necesita acotarse.
+- **Fuente en implementación:** Directorio Estadístico Nacional de Unidades Económicas (DENUE), del INEGI.
+- **Fuentes de contexto candidatas:** Censo de Población y Vivienda 2020, Censos Económicos 2024 y catálogos/cartografía geoestadística. ENIGH queda como posible fase posterior.
+- **Estrategia técnica:** local primero; cloud solo cuando el flujo y sus necesidades estén mejor definidos.
 
-La primera ciudad objetivo es **Ciudad de México**. Las unidades territoriales iniciales serán las **alcaldías**, sin descartar otras geografías si las fuentes permiten una integración válida.
+Las categorías comerciales son etiquetas de producto, no códigos SCIAN confirmados. No se deben fijar filtros reproducibles hasta documentar los códigos, descripciones, versión de clasificación y reglas de inclusión/exclusión.
 
-### Actividades económicas candidatas
+## Implementación disponible
 
-1. Cafeterías.
-2. Restaurantes.
-3. Tiendas de artículos —la categoría debe precisarse antes de crear filtros reproducibles.
-4. Gimnasios.
+### 1. Cliente DENUE
 
-Son categorías de producto provisionales, no códigos SCIAN confirmados. Los códigos y sus descripciones se documentarán después de revisar la clasificación y los campos disponibles en las fuentes.
+En `src/rendify/denue/client.py` se encuentra:
 
-## Qué no promete Rendify
+- Construcción de URL para el método `BuscarAreaAct`.
+- Codificación de parámetros de ruta.
+- Validación del token y del rango inclusivo de registros.
+- Petición HTTP con timeout configurable.
+- Normalización de errores HTTP, timeout, conexión y JSON inválido mediante `DenueAPIError`.
+- Respuesta tipada `DenueAPIResponse`, que conserva código HTTP, content type, bytes originales y registros parseados.
 
-La presencia de establecimientos no demuestra por sí sola que un negocio haya tenido éxito. Una zona con pocos establecimientos no es necesariamente una oportunidad, y una zona con muchos negocios no es necesariamente rentable.
+El cliente utiliza la biblioteca estándar de Python (`urllib` y `json`); no usa actualmente `requests` ni `httpx`.
 
-Los datos públicos pueden ayudar a explorar demanda potencial, competencia y contexto local; normalmente no sustituyen información financiera de cada negocio, como ventas, costes, renta, nómina, impuestos y operación. Por eso, el MVP hablará de **indicadores exploratorios u oportunidad comercial estimada**, no de garantías de éxito o rentabilidad.
+### 2. Extracción y persistencia Bronze
 
-No presentaremos correlaciones como causalidad, ni una puntuación heurística como si fuera una probabilidad validada. La cobertura, granularidad y periodo de cada fuente deben acompañar las conclusiones.
+En `src/rendify/denue/extract.py`:
 
-## Principios de desarrollo
+- `extract_denue_to_bronze()` consulta el endpoint y delega la persistencia.
+- `save_bronze_response()` conserva los bytes originales en `response.json`.
+- Genera un `manifest.json` con fuente, método, run ID, timestamp UTC, parámetros no secretos, metadatos HTTP, conteo, tamaño, checksum SHA-256 y referencia al archivo.
+- Evita escribir credenciales en los parámetros del manifiesto.
+- Escribe primero la respuesta y después el manifiesto, usando archivos temporales y reemplazo.
 
-- **Validar antes de diseñar en exceso:** auditar muestras reales antes de fijar contratos y modelos definitivos.
-- **Local primero:** desarrollar y reproducir el flujo localmente; incorporar cloud solo cuando aporte valor medible.
-- **Trazabilidad:** preservar los datos originales y registrar fuente, parámetros no secretos, fecha de extracción, periodo de referencia y versión.
-- **Gobierno de datos inspirado en DAMA-DMBOK:** documentar responsables, fuentes, definiciones, metadatos, calidad, seguridad y criterios de uso, con controles proporcionales al tamaño del equipo.
-- **Capas medallón:** Bronze conserva originales; Silver normaliza y valida; Gold publica indicadores con definiciones y linaje. La cuarentena gestiona excepciones sin sustituir el original.
-- **Calidad comprobable:** automatizar controles por capa y exigir evidencia antes de promover o publicar datasets.
-- **Trazabilidad:** cada salida debe enlazar con la fuente, la ejecución, el contrato y la versión del código.
-- **Simplicidad intencional:** no incluir Spark, Kafka, Kubernetes ni otros componentes por moda; cada tecnología debe responder a una necesidad concreta.
-- **Responsabilidad:** revisar atribución, condiciones de reutilización, minimización, seguridad y costes antes de publicar.
+Ruta esperada por ejecución:
 
-## Roadmap de alto nivel
+```text
+data/bronze/denue/
+└── extraction_date=YYYY-MM-DD/
+    └── run_id=<run>/
+        ├── response.json
+        └── manifest.json
+```
 
-1. **Sprint 0 — Definición y viabilidad:** delimitar el MVP, revisar el repositorio, documentar fuentes, actividades e indicadores candidatos.
-2. **Sprint 1 — Auditoría de datos:** validar el método de acceso al DENUE, ejecutar una consulta de prueba, crear un extractor reproducible y generar un informe de calidad.
-3. **Ingesta local:** definir persistencia, configuración, identificadores, idempotencia y almacenamiento en PostgreSQL/PostGIS si resulta apropiado.
-4. **Integración y analítica:** evaluar la integración geográfica y censal, diseñar indicadores y añadir pruebas de calidad.
-5. **Cloud y operación:** evaluar Cloud Storage, BigQuery y ejecución programada con presupuesto y permisos mínimos.
-6. **ML baseline:** formular un objetivo medible y validar si existen etiquetas y observaciones adecuadas; comparar cualquier modelo con una referencia simple.
-7. **API y experiencia web:** exponer indicadores validados y ofrecer filtros, mapas, comparaciones y explicaciones.
-8. **CI/CD y validación:** automatizar pruebas y builds, documentar el despliegue y evaluar la utilidad con usuarios.
+Los datos generados son artefactos de ejecución y no deben versionarse en Git.
 
-Las fases son una secuencia de trabajo, no una promesa de que todos los componentes serán necesarios. No se pasará a ML antes de disponer de datos fiables y de un objetivo evaluable.
+### 3. Validación Bronze
 
-## Stack tecnológico previsto
+En `src/rendify/denue/validate.py`, `validate_bronze_response()` comprueba:
 
-| Área | Tecnología prevista | Estado |
+- Existencia y lectura del manifiesto.
+- Presencia de campos mínimos y tipo de metadatos.
+- Fuente y método esperados.
+- Ausencia de claves de credenciales en los parámetros.
+- Código HTTP 200.
+- Referencia segura al archivo de respuesta.
+- Existencia, tamaño y checksum del payload.
+- JSON UTF-8 válido, lista de objetos y conteo consistente.
+
+La función devuelve un resumen pequeño apto para metadatos de la tarea; no pasa el dataset completo por XCom.
+
+### 4. Orquestación Airflow
+
+`dags/denue_initial_extraction.py` define el DAG `denue_initial_extraction` con la API `airflow.sdk` (estilo Airflow 3):
+
+1. `extract_denue`: lee `DENUE_API_TOKEN`, consulta DENUE y guarda la respuesta en Bronze.
+2. `validate_bronze`: valida el manifiesto y el payload generado por la extracción.
+
+El DAG no tiene schedule automático (`schedule=None`), desactiva catchup y permite una ejecución activa a la vez. La muestra se configura actualmente para la entidad `09` (CDMX), sin filtros adicionales y con registros del 1 al 15. **Es una prueba de conectividad y persistencia, no una extracción completa ni un pipeline analítico.**
+
+El volumen `data` se monta en los contenedores para compartir los archivos entre tareas. La variable `DENUE_API_TOKEN` se inyecta en el worker desde el entorno.
+
+### 5. Pruebas disponibles
+
+| Suite | Qué verifica |
+|---|---|
+| `tests/denue/test_denue_client.py` | Construcción de URL, codificación, token y límites del rango. |
+| `tests/denue/test_denue_extract.py` | Escritura del original, manifiesto, checksum, metadatos y exclusión del token. |
+| `tests/denue/test_denue_validate.py` | Validación correcta y rechazo de manifiestos/payloads inconsistentes. |
+| `tests/integration/test_denue_api.py` | Consulta real optativa, validación de respuesta y observación de campos. Requiere token y servicio disponible. |
+
+Las pruebas de integración se omiten si no se configura `DENUE_API_TOKEN`. No se debe confundir una prueba unitaria con una verificación del servicio real.
+
+## Estado por componente
+
+| Componente | Estado | Evidencia / pendiente |
 |---|---|---|
-| Lenguaje | Python 3.12 | Configurado como versión del proyecto |
-| Entorno y dependencias | uv | Configuración inicial presente; dependencias por definir |
-| Extracción | requests o httpx | Pendiente |
-| Análisis local | Pandas | Pendiente; se usará si aporta valor |
-| Calidad y estilo | pytest, Ruff | Pendiente de configuración |
-| Almacenamiento local | PostgreSQL + PostGIS | Fase posterior |
-| Transformación | SQL y Python | Fase posterior |
-| Orquestación | Apache Airflow | Planeado desde el primer pipeline orquestado; la lógica de extracción seguirá siendo ejecutable fuera de Airflow |
-| Cloud | Google Cloud Storage, BigQuery y servicios adecuados de GCP | Después de validar el flujo local |
-| API y web | FastAPI; React + TypeScript u otra opción adecuada | Fase posterior |
-| CI/CD | GitHub Actions | Pendiente |
+| Cliente HTTP DENUE | Implementado | `client.py`; pruebas unitarias. |
+| Extracción a Bronze | Implementada | `extract.py`; original y manifiesto. |
+| Integridad Bronze | Implementada | SHA-256, tamaño, JSON y conteo. |
+| DAG inicial Airflow 3 | Implementado | Extracción + validación manual de muestra. |
+| Pruebas unitarias DENUE | Implementadas | Tres módulos bajo `tests/denue/`. |
+| Prueba contra API real | Implementada como test optativo | Requiere token, conectividad y ejecución explícita. |
+| Perfilado de datos | Pendiente | El módulo y el script actuales son plantillas. |
+| Silver y contrato canónico | Pendiente | Aún no hay transformación ni esquema confirmado. |
+| Cuarentena operativa | Pendiente | Reglas y diseño documentados; flujo no implementado. |
+| Gold e indicadores | Pendiente | No hay agregados de negocio. |
+| Catálogos SCIAN y geográficos | Pendiente | Deben versionarse después de validar fuentes. |
+| PostgreSQL/PostGIS | No implementado para los datos de Rendify | PostgreSQL de Compose es el metastore de Airflow. |
+| API, interfaz y mapas | Pendiente | No existe aplicación de producto todavía. |
+| Cloud / CI-CD | Pendiente | No desplegado ni automatizado. |
 
-## Estructura del repositorio y capas de datos
+## Arquitectura de datos
 
-La estructura del código separa orquestación, lógica de aplicación, pruebas y documentación de gobierno. Las carpetas de datos representan el patrón medallón lógico; los datos generados se crean en tiempo de ejecución y no se versionan.
+El modelo lógico adoptado es medallón:
 
-~~~text
+```text
+DENUE API
+   |
+   v
+BRONZE  -> respuesta original + manifiesto
+   |
+   v
+SILVER  -> registros normalizados y validados
+   |                    |                  -> QUARANTINE: excepciones trazables
+   v
+GOLD    -> agregados e indicadores por actividad/zona/periodo
+```
+
+A día de hoy, solo la persistencia y validación inicial de Bronze están implementadas en código. Silver, Gold y cuarentena son el diseño objetivo. DAMA-DMBOK inspira el gobierno de fuentes, definiciones, responsables, calidad, metadatos y seguridad; el proyecto aplica prácticas ligeras y no afirma una implantación completa ni certificación.
+
+Documentos principales:
+
+- [Arquitectura medallón](docs/architecture/medallion-architecture.md)
+- [Investigación de API DENUE](docs/denue-api-research.md)
+- [Inventario de fuentes](docs/data-sources.md)
+- [Brief de producto](docs/product-brief.md)
+- [Índice de gobierno de datos](docs/governance/README.md)
+- [Registro de decisiones (ADR)](docs/decisions/0001-data-governance-and-medallion.md)
+
+## Estructura del repositorio
+
+```text
 rendify/
 ├── dags/
-│   └── denue_initial_extraction.py  # Punto de entrada Airflow; implementar
-├── config/
-│   └── reference/
-│       └── README.md                # Política para catálogos y mapeos versionados
-├── data/                            # Resultados locales; no versionar datos generados
-│   ├── bronze/denue/                # Respuestas originales + manifiestos
-│   ├── silver/denue/                # Registros normalizados y validados
-│   ├── gold/area_activity/          # Agregados para comparación por zona/actividad
-│   ├── gold/ml_features/            # Solo al definir un caso ML defendible
-│   └── quarantine/denue/            # Excepciones con referencia al original
+│   └── denue_initial_extraction.py
+├── config/reference/
+├── data/                         # Datos locales generados; no versionar
 ├── docs/
 │   ├── architecture/
-│   │   └── medallion-architecture.md
 │   ├── decisions/
-│   │   └── 0001-data-governance-and-medallion.md
 │   ├── governance/
-│   │   ├── data-governance-charter.md
-│   │   ├── data-management-plan.md
-│   │   ├── data-dictionary.md
-│   │   ├── data-quality-rules.md
-│   │   └── data-assets-register.md
-│   ├── denue-api-research.md
 │   ├── data-sources.md
+│   ├── denue-api-research.md
 │   └── product-brief.md
-├── reports/                         # Reportes seleccionados de calidad/perfilado
-├── schemas/
-│   └── README.md                    # Contratos una vez validado el esquema real
+├── reports/                      # Reservado para reportes generados/revisados
+├── schemas/                      # Contratos pendientes de confirmar
 ├── scripts/
-│   └── profile_denue.py             # Punto de entrada útil para perfilado local
+│   └── profile_denue.py          # Placeholder de perfilado
 ├── src/rendify/
-│   ├── denue/                       # Cliente, extracción, transformación y validación
-│   └── profiling/                   # Perfilado y reportes de calidad
+│   ├── denue/
+│   │   ├── client.py
+│   │   ├── exceptions.py
+│   │   ├── extract.py
+│   │   └── validate.py
+│   └── profiling/
+│       └── denue_profile.py      # Placeholder
 ├── tests/
-│   └── denue/                       # Pruebas de cliente, contrato y calidad
+│   ├── denue/
+│   └── integration/
+├── docker-compose.yaml
+├── Dockerfile                    # Vacío actualmente
 ├── pyproject.toml
 └── uv.lock
-~~~
-
-Los archivos de código existentes en varias de estas rutas son actualmente plantillas vacías; el árbol describe la organización objetivo, no una afirmación de que el pipeline ya funcione. Los directorios de salida de datos se crearán cuando se ejecute la ingesta. Las respuestas originales, datos Silver/Gold y cuarentena no se subirán a Git.
-
-### Cómo se relaciona DAMA con medallón
-
-DAMA-DMBOK inspira las responsabilidades, definiciones, metadatos, seguridad, calidad, integración y decisiones de uso. Medallón organiza el refinamiento técnico de los datos. El equipo implementará ambas cosas de forma ligera; no se afirma una implantación completa ni certificación DAMA.
-
-Documentos de referencia:
-- [Marco de gobierno y responsabilidades](docs/governance/data-governance-charter.md)
-- [Plan de gestión de datos](docs/governance/data-management-plan.md)
-- [Diccionario de datos](docs/governance/data-dictionary.md)
-- [Reglas de calidad](docs/governance/data-quality-rules.md)
-- [Registro de activos de datos](docs/governance/data-assets-register.md)
-- [Arquitectura medallón](docs/architecture/medallion-architecture.md)
+```
 
 ## Preparar el entorno
 
-Requisitos iniciales: Git, Python 3.12 y uv.
+### Ejecución del paquete Python
+
+El proyecto requiere Python `>=3.12` y usa `uv`. En el estado actual:
 
 ```bash
-git clone git@github.com:donosty/rendify.git
+git clone https://github.com/donosty/rendify.git
 cd rendify
 uv sync
 uv run rendify
 ```
 
-En el estado actual, el último comando ejecuta la entrada de plantilla e imprime `Hello from rendify!`. Esto solo comprueba la entrada inicial cuando se ejecuta correctamente; todavía no existe una aplicación funcional de inteligencia comercial.
+El comando `uv run rendify` ejecuta la entrada de plantilla que imprime `Hello from rendify!`; no ejecuta el pipeline DENUE.
 
-Cuando se incorporen dependencias, pruebas y herramientas de calidad, sus comandos se documentarán aquí y en los archivos de configuración correspondientes.
+### Ejecutar pruebas unitarias
 
-## Forma de trabajo
+Los tests están escritos con `unittest`. El descubrimiento puede ejecutarse con el entorno que tenga el paquete disponible:
 
-El equipo tendrá dos colaboradores con responsabilidades principales complementarias en Data Engineering y analítica/Machine Learning. Ambos revisarán las decisiones relevantes y deberán poder explicar el flujo completo.
+```bash
+PYTHONPATH=src python -m unittest discover -s tests/denue -v
+```
 
-- Trabajar en ramas cortas con nombres descriptivos.
-- Abrir pull requests pequeñas y solicitar revisión cruzada.
-- Usar commits descriptivos.
-- Definir criterios de aceptación para cada tarea.
-- Registrar decisiones arquitectónicas relevantes en `docs/decisions/`.
-- Hacer una demostración y una revisión de aprendizajes al cerrar cada sprint.
+El repositorio todavía no declara en `pyproject.toml` un comando de pruebas ni dependencias de Airflow. Comprueba e instala las dependencias necesarias en el entorno de desarrollo antes de ejecutar las suites. La prueba real de integración está separada y requiere `python-dotenv`, un token válido y acceso a Internet:
 
-## Fuentes iniciales
+```bash
+PYTHONPATH=src python -m unittest discover -s tests/integration -v
+```
+
+Usa `.env` local para el token; no lo subas al repositorio. Revisa siempre `.gitignore` antes de guardar credenciales.
+
+### Airflow con Docker Compose
+
+El Compose actual está basado en Apache Airflow `3.3.2`, CeleryExecutor, Redis y PostgreSQL. Es configuración local de desarrollo, no producción.
+
+1. Crea un archivo `.env` local con las variables requeridas por el Compose, incluyendo `DENUE_API_TOKEN`, `FERNET_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` y `AIRFLOW_UID` cuando corresponda. No uses valores de ejemplo en un entorno expuesto.
+2. Asegúrate de que el worker pueda instalar/importar las dependencias y el paquete Rendify. El `Dockerfile` está vacío y el Compose usa la imagen oficial por defecto; la imagen personalizada aún debe prepararse para incluir dependencias del proyecto.
+3. Inicia los servicios:
+
+```bash
+docker compose up airflow-init
+docker compose up -d
+```
+
+4. Abre la UI local en [http://localhost:8080](http://localhost:8080), activa `denue_initial_extraction` y ejecútalo manualmente.
+5. Consulta los logs de `extract_denue` y `validate_bronze`, y revisa los archivos creados en `data/bronze/denue/`.
+
+El DAG necesita que el paquete `rendify` sea importable por los componentes de Airflow; el volumen `src` se monta y `PYTHONPATH=/opt/airflow/src` está declarado, pero las dependencias y permisos del entorno todavía deben verificarse. No damos por garantizada la ejecución en contenedor hasta completar esa validación.
+
+## Variables sensibles
+
+- `DENUE_API_TOKEN`: token para la API.
+- `FERNET_KEY`: clave Fernet de Airflow.
+- `AIRFLOW__API_AUTH__JWT_SECRET`: secreto JWT para Airflow.
+
+Mantén estas variables fuera de Git y de los manifiestos. No compartas logs que contengan secretos. El manifiesto de Rendify guarda parámetros de consulta no secretos, no el token.
+
+## Próximos pasos técnicos
+
+1. **Cerrar la base de ejecución:** definir dependencias y una imagen reproducible de Airflow que incluya el paquete Rendify.
+2. **Ejecutar el DAG de muestra de extremo a extremo:** conservar evidencia de ejecución, validar el manifiesto generado y comprobar el volumen compartido.
+3. **Auditar la respuesta real:** confirmar nombres/tipos de campos, cobertura, códigos SCIAN, semántica geográfica, límites y condiciones de uso.
+4. **Perfilado reproducible:** implementar el script/módulo de perfilado y guardar un reporte de muestra, sin publicar datos sensibles.
+5. **Silver:** aprobar el contrato, normalizar tipos y claves y diseñar cuarentena.
+6. **Pruebas y CI:** cubrir cliente, persistencia, validación y transformaciones; automatizar pruebas y lint.
+7. **Gold descriptivo:** definir y probar indicadores comparables por alcaldía/actividad/periodo.
+8. **Integración de contexto:** estudiar fuentes demográficas y económicas solo después de validar claves, unidades y periodos.
+9. **Producto y ML:** diseñar interfaz e investigar un objetivo ML únicamente cuando existan datos y una evaluación defendible.
+
+## Fuentes
 
 - [API del DENUE — INEGI](https://www.inegi.org.mx/servicios/api_denue.html)
 - [Censo de Población y Vivienda 2020 — INEGI](https://www.inegi.org.mx/programas/ccpv/2020/)
 - [Censos Económicos 2024 — INEGI](https://www.inegi.org.mx/programas/ce/2024/default.html)
-- [ENIGH 2024 — INEGI](https://www.inegi.org.mx/programas/enigh/nc/2024/default.html)
-- [Documentación de Google Cloud Storage](https://cloud.google.com/storage/docs)
-- [Documentación de BigQuery](https://cloud.google.com/bigquery/docs)
-- [Documentación de Cloud Run](https://cloud.google.com/run/docs)
 - [Documentación de Apache Airflow](https://airflow.apache.org/docs/)
+- [Documentación de uv](https://docs.astral.sh/uv/)
 
-La existencia de una fuente candidata no significa que su cobertura, permisos de uso o granularidad estén validados. Consulta `docs/data-sources.md` para conocer el estado y las preguntas pendientes.
-
-## Criterio de éxito
-
-Rendify deberá permitir que otra persona clone el repositorio, prepare el entorno, ejecute el flujo documentado, compruebe la calidad y procedencia de los datos y entienda cómo se calcularon los indicadores. La utilidad para los usuarios se evaluará con pruebas y feedback; no se asumirá solo por tener una arquitectura técnica.
